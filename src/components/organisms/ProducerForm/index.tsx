@@ -6,6 +6,7 @@ import Button from "../../atoms/Button";
 import { Farm } from "../../../types/Farm";
 import SelectField from "../../molecules/SelectField";
 import { toast } from "react-toastify";
+import { validateCPFCNPJ } from "../../../utils";
 
 interface ProducerFormData {
   producerName: string;
@@ -65,6 +66,15 @@ const ProducerForm: React.FC<ProducerFormProps> = ({ onSubmit, data }) => {
   };
 
   const onFormSubmit = (formData: ProducerFormData) => {
+    if (validateCPFCNPJ(formData.cpfCnpj) === false) {
+      setError("cpfCnpj", {
+        type: "manual",
+        message: "CPF ou CNPJ inválido.",
+      });
+      toast.error("CPF ou CNPJ inválido.");
+      return;
+    }
+    
     const totalArea =
       Number(formData.cultivableArea) + Number(formData.vegetationArea);
     if (formData.totalArea < totalArea) {

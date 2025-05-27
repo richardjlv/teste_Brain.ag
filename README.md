@@ -53,10 +53,7 @@ brain-agriculture
    ```
    git clone <repository-url>
    ```
-2. Navigate to the project directory:
-   ```
-   cd brain-agriculture
-   ```
+2. Navigate to the project directory
 3. Install dependencies:
    ```
    npm install
