@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
 import { Form, FormRow, HarvestList, CropList, AddButton } from "./styles";
 import FormField from "../../molecules/FormField";
 import Button from "../../atoms/Button";
 import { Farm } from "../../../types/Farm";
 import SelectField from "../../molecules/SelectField";
-import { toast } from "react-toastify";
 import { validateCPFCNPJ } from "../../../utils";
 
 interface ProducerFormData {
@@ -29,6 +30,59 @@ interface ProducerFormProps {
   data?: Farm;
 }
 
+const schema = yup.object({
+  producerName: yup
+    .string()
+    .required("Nome é obrigatório")
+    .min(2, "Nome deve ter pelo menos 2 caracteres"),
+  cpfCnpj: yup
+    .string()
+    .required("Documento é obrigatório")
+    .test("valid-cpf-cnpj", "CPF ou CNPJ inválido", (value) => {
+      return value ? validateCPFCNPJ(value) : false;
+    }),
+  state: yup.string().required("Estado é obrigatório"),
+  city: yup.string().required("Cidade é obrigatória"),
+  farmName: yup.string().required("Nome da fazenda é obrigatório"),
+  totalArea: yup
+    .number()
+    .required("Área total é obrigatória")
+    .positive("Área total deve ser maior que 0")
+    .typeError("Área total deve ser um número"),
+  cultivableArea: yup
+    .number()
+    .required("Área agricultável é obrigatória")
+    .min(0, "Área agricultável deve ser maior ou igual a 0")
+    .typeError("Área agricultável deve ser um número")
+    .test(
+      "area-validation",
+      "A área cultivável não pode ser maior que a área total",
+      function (value) {
+        const { totalArea, vegetationArea } = this.parent;
+        if (value && vegetationArea && totalArea) {
+          return value + vegetationArea <= totalArea;
+        }
+        return true;
+      }
+    ),
+  vegetationArea: yup
+    .number()
+    .required("Área de vegetação é obrigatória")
+    .min(0, "Área de vegetação deve ser maior ou igual a 0")
+    .typeError("Área de vegetação deve ser um número")
+    .test(
+      "area-validation",
+      "A área de vegetação não pode ser maior que a área total",
+      function (value) {
+        const { totalArea, cultivableArea } = this.parent;
+        if (value && cultivableArea && totalArea) {
+          return value + cultivableArea <= totalArea;
+        }
+        return true;
+      }
+    ),
+});
+
 const ProducerForm: React.FC<ProducerFormProps> = ({ onSubmit, data }) => {
   const [harvests, setHarvests] = useState<string[]>([]);
   const [crops, setCrops] = useState<Crop[]>([]);
@@ -39,9 +93,10 @@ const ProducerForm: React.FC<ProducerFormProps> = ({ onSubmit, data }) => {
     register,
     handleSubmit,
     setValue,
-    setError,
     formState: { errors },
-  } = useForm<ProducerFormData>();
+  } = useForm<ProducerFormData>({
+    resolver: yupResolver(schema),
+  });
 
   const handleAddHarvest = () => {
     if (newHarvest) {
@@ -66,32 +121,6 @@ const ProducerForm: React.FC<ProducerFormProps> = ({ onSubmit, data }) => {
   };
 
   const onFormSubmit = (formData: ProducerFormData) => {
-    if (validateCPFCNPJ(formData.cpfCnpj) === false) {
-      setError("cpfCnpj", {
-        type: "manual",
-        message: "CPF ou CNPJ inválido.",
-      });
-      toast.error("CPF ou CNPJ inválido.");
-      return;
-    }
-    
-    const totalArea =
-      Number(formData.cultivableArea) + Number(formData.vegetationArea);
-    if (formData.totalArea < totalArea) {
-      setError("cultivableArea", {
-        type: "manual",
-        message: "A área cultivável não pode ser maior que a área total.",
-      });
-      setError("vegetationArea", {
-        type: "manual",
-        message: "A área de vegetação não pode ser maior que a área total.",
-      });
-      toast.error(
-        "A área cultivável e a área de vegetação não podem ser maiores que a área total da fazenda.",
-      );
-      return;
-    }
-
     const farmData: Farm = {
       ...formData,
       harvests,
@@ -226,7 +255,7 @@ const ProducerForm: React.FC<ProducerFormProps> = ({ onSubmit, data }) => {
           <AddButton type="button" onClick={handleAddHarvest}>
             Adicionar Safra
           </AddButton>
-          <HarvestList>
+          <HarvestList data-testid="harvest-list">
             {harvests.map((harvest, index) => (
               <li key={index}>
                 {harvest}
